@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multiplayer Online Platformer with Audio</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000000;
+            touch-action: none;
+        }
+
+        #login-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: rgba(255, 255, 255, 100);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #login-box {
+            background: #ffffff;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 280px;
+            box-sizing: border-box;
+        }
+        #login-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #000000;
+            text-align: center;
+        }
+        #login-input {
+            background: #ffffff;
+            border: 1px solid #000000;
+            padding: 6px;
+            color: #000000;
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+        #login-button {
+            background: #FFD700;
+            border: 1px solid #000000;
+            color: #000000;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+        }
+        #login-button:active {
+            background: #cccccc;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+        }
+        #viewport {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+            border-right: 1px solid #000000;
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .player-wrapper {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            z-index: 10;
+            cursor: pointer;
+        }
+        .player-avatar {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            bottom: 0;
+            pointer-events: auto;
+        }
+
+        .name-tag {
+            position: absolute;
+            left: 50%;
+            bottom: 210px;
+            transform: translateX(-50%);
+            background: #ffffff;
+            border: 1px solid #000000;
+            color: #000000;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 35;
+        }
+
+        .player-bubble {
+            position: absolute;
+            bottom: 215px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 220px;
+            display: none; 
+            z-index: 30;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        .player-bubble svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            display: block;
+        }
+
+        .player-bubble-text {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 10px 14px;
+            box-sizing: border-box;
+            color: #000000;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            word-break: break-word;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 31;
+            pointer-events: none;
+        }
+
+        .platform {
+            position: absolute;
+            background-color: #FFD700;
+            border: 1px solid #000000;
+            z-index: 5;
+        }
+        
+        #chat-panel {
+            width: 280px;
+            height: 100%;
+            background: #FFD700;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            padding: 8px;
+            z-index: 20;
+        }
+        #chat-header {
+            font-size: 13px;
+            font-weight: bold;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+            color: #000000;
+            border-bottom: 1px solid #000000;
+            text-align: center;
+        }
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding-right: 2px;
+        }
+        .chat-msg {
+            background: #ffffff;
+            border: 1px solid #000000;
+            padding: 6px;
+            word-break: break-word;
+            line-height: 1.3;
+            color: #000000;
+        }
+        .chat-msg span {
+            font-weight: bold;
+            color: #000000;
+            text-decoration: underline;
+        }
+        #chat-input-container {
+            display: flex;
+            gap: 4px;
+        }
+        #chat-input {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid #000000;
+            padding: 6px;
+            color: #000000;
+            font-family: inherit;
+            font-size: 12px;
+            outline: none;
+        }
+        #chat-send {
+            background: #FFD700;
+            border: 1px solid #000000;
+            color: #000000;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        #chat-send:active {
+            background: #cccccc;
+        }
+
+        #context-menu {
+            position: absolute;
+            background: #ffffff;
+            border: 1px solid #000000;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        .context-item {
+            padding: 8px 12px;
+            color: #000000;
+            font-size: 12px;
+            cursor: pointer;
+            background: #ffffff;
+            border-bottom: 1px solid #000000;
+            white-space: nowrap;
+        }
+        .context-item:last-child {
+            border-bottom: none;
+        }
+        .context-item:hover {
+            background: #000000;
+            color: #ffffff;
+        }
+
+        @media (max-width: 768px) {
+            #game-container {
+                flex-direction: column;
+            }
+            #viewport {
+                flex: 1;
+                width: 100%;
+            }
+            #chat-panel {
+                width: 100%;
+                height: 130px;
+                padding: 6px;
+            }
+            #chat-header {
+                display: none;
+            }
+            #chat-messages {
+                margin-bottom: 4px;
+                max-height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div id="login-box">
+        <img src="morty.png" alt="MORTY">
+        <input type="text" id="login-input" placeholder="Enter your username..." autocomplete="off">
+        <button id="login-button">OK</button>
+    </div>
+</div>
+
+<div id="context-menu">
+    <div class="context-item" id="ctx-call">Call Player</div>
+    <div class="context-item" id="ctx-mute">Mute Locally</div>
+</div>
+
+<div id="game-container">
+    <div id="viewport">
+        <video id="bg-video" muted playsinline></video>
+        <div id="player-wrapper" class="player-wrapper">
+            <div id="name-tag" class="name-tag">Player</div>
+            <div id="player-bubble" class="player-bubble">
+                <svg viewBox="0 0 220 60" preserveAspectRatio="none">
+                    <path id="player-bubble-path" d="" fill="#ffffff" stroke="#000000" stroke-width="1" stroke-linejoin="round" />
+                </svg>
+                <div id="player-bubble-text" class="player-bubble-text"></div>
+            </div>
+            <div id="player" class="player-avatar"></div>
+        </div>
+    </div>
+
+    <div id="chat-panel">
+        <div id="chat-header">Online Chat Log</div>
+        <div id="chat-messages">
+            <div class="chat-msg"><span>COMMANDS:</span> /media [url], /backgroundvid [url], /skin [url], /name [newname]</div>
+        </div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Type a message or command...">
+            <button id="chat-send">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+
+    const footstepSound = new Audio('footstep.ogg');
+    const jumpSound = new Audio('jump.wav');
+    const messageSound = new Audio('message.wav');
+    const mouseClickSound = new Audio('mouseclick.wav');
+    const groundLandSound = new Audio('groundland.wav');
+
+    function playSfx(audioObj) {
+        if (!gameStarted) return;
+        audioObj.currentTime = 0;
+        audioObj.play().catch(err => {});
+    }
+
+    document.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.classList.contains('context-item')) {
+            playSfx(mouseClickSound);
+        }
+    });
+
+    const loginScreen = document.getElementById('login-screen');
+    const loginInput = document.getElementById('login-input');
+    const loginButton = document.getElementById('login-button');
+
+    const viewport = document.getElementById('viewport');
+    const bgVideo = document.getElementById('bg-video');
+    const playerWrapper = document.getElementById('player-wrapper');
+    const playerEl = document.getElementById('player');
+    const playerBubble = document.getElementById('player-bubble');
+    const playerBubbleText = document.getElementById('player-bubble-text');
+    const playerBubblePath = document.getElementById('player-bubble-path');
+    const nameTag = document.getElementById('name-tag');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    const chatMessages = document.getElementById('chat-messages');
+
+    const contextMenu = document.getElementById('context-menu');
+    const ctxCall = document.getElementById('ctx-call');
+    const ctxMute = document.getElementById('ctx-mute');
+
+    let gameStarted = false;
+    let playerName = "Player";
+    let isMutedLocal = false;
+    let customSkinUrl = null;
+
+    let gameWidth = viewport.clientWidth;
+    let gameHeight = viewport.clientHeight;
+    const worldWidth = 8000;
+
+    const player = {
+        x: 100,
+        y: 600,
+        width: 61,     
+        height: 200,   
+        renderWidth: 200,  
+        renderHeight: 200, 
+        vx: 0,
+        vy: 0,
+        speed: 600,        
+        gravity: 1800,     
+        jumpForce: -750,   
+        isGrounded: false,
+        facing: 'right',
+        currentAnim: ''
+    };
+
+    let cameraX = 0;
+    let cameraY = 0;
+    let isTyping = false;
+    let stepTimer = 0;
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0, currentDragX = 0, currentDragY = 0;
+    let triggerJump = false;
+
+    const remotePlayers = {};
+
+    function playGoogleTranslateTTS(text) {
+        if (isMutedLocal || !gameStarted) return;
+        let encodedText = encodeURIComponent(text);
+        let ttsUrl = `https:
+        let audio = new Audio(ttsUrl);
+        audio.volume = 1.0;
+        audio.play().catch(err => {});
+    }
+
+    function handleJoin() {
+        let inputVal = loginInput.value.trim();
+        if (inputVal !== "") {
+            playerName = inputVal;
+        }
+        nameTag.textContent = playerName;
+        loginScreen.style.display = 'none';
+        gameStarted = true;
+        chatInput.focus();
+
+        socket.emit('chatMessage', { text: `/name ${playerName}` });
+    }
+
+    loginButton.addEventListener('click', handleJoin);
+    loginInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleJoin();
+    });
+
+    socket.on('currentPlayers', (serverPlayers) => {
+        Object.keys(serverPlayers).forEach((id) => {
+            if (id !== socket.id) {
+                createRemotePlayer(serverPlayers[id]);
+            }
+        });
+    });
+
+    socket.on('newPlayer', (playerInfo) => {
+        createRemotePlayer(playerInfo);
+    });
+
+    socket.on('playerMoved', (playerInfo) => {
+        if (remotePlayers[playerInfo.id]) {
+            let rp = remotePlayers[playerInfo.id];
+            rp.targetX = playerInfo.x;
+            rp.targetY = playerInfo.y;
+            rp.facing = playerInfo.facing;
+            rp.anim = playerInfo.anim;
+            rp.customSkin = playerInfo.customSkin;
+            rp.name = playerInfo.name;
+        }
+    });
+
+    socket.on('playerDisconnected', (id) => {
+        if (remotePlayers[id]) {
+            remotePlayers[id].wrapper.remove();
+            delete remotePlayers[id];
+        }
+    });
+
+    socket.on('chatMessage', (data) => {
+        const msgEl = document.createElement('div');
+        msgEl.className = 'chat-msg';
+        msgEl.innerHTML = `<span>${escapeHTML(data.name)}:</span> ${escapeHTML(data.text)}`;
+        chatMessages.appendChild(msgEl);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        if (data.id === socket.id) {
+            showSpeechBubble(playerBubble, playerBubbleText, playerBubblePath, nameTag, data.text, 215);
+            playGoogleTranslateTTS(data.text);
+        } else if (remotePlayers[data.id]) {
+            let rp = remotePlayers[data.id];
+            rp.name = data.name;
+            rp.nameTag.textContent = data.name;
+            if (data.customSkin) {
+                rp.avatar.style.backgroundImage = `url('${data.customSkin}')`;
+            }
+            showSpeechBubble(rp.bubble, rp.bubbleText, rp.bubblePath, rp.nameTag, data.text, 215);
+            playGoogleTranslateTTS(data.text);
+        }
+
+        if (data.text.startsWith('/media ')) {
+            const url = data.text.substring(7).trim();
+            const isVid = url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('youtube');
+            if (isVid) {
+                addSystemMsg(`Media Loaded: <video src="${url}" controls style="max-width:100%;margin-top:5px;border:1px solid #000;"></video>`);
+            } else {
+                addSystemMsg(`Media Loaded: <img src="${url}" style="max-width:100%;margin-top:5px;border:1px solid #000;" />`);
+            }
+        } else if (data.text.startsWith('/backgroundvid ')) {
+            const url = data.text.substring(15).trim();
+            if (url) {
+                bgVideo.src = url;
+                bgVideo.style.display = 'block';
+                bgVideo.currentTime = 0;
+                bgVideo.play().catch(err => {});
+                bgVideo.onended = () => {
+                    bgVideo.style.display = 'none';
+                    bgVideo.src = '';
+                };
+                addSystemMsg("Background video started.");
+            }
+        }
+    });
+
+    function createRemotePlayer(info) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'player-wrapper';
+
+        const nTag = document.createElement('div');
+        nTag.className = 'name-tag';
+        nTag.textContent = info.name;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'player-bubble';
+        bubble.innerHTML = `
+            <svg viewBox="0 0 220 60" preserveAspectRatio="none">
+                <path class="remote-bubble-path" d="" fill="#ffffff" stroke="#000000" stroke-width="1" stroke-linejoin="round" />
+            </svg>
+            <div class="player-bubble-text"></div>
+        `;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'player-avatar';
+        avatar.style.backgroundImage = `url('${info.customSkin || 'mortyidle.gif'}')`;
+
+        wrapper.appendChild(nTag);
+        wrapper.appendChild(bubble);
+        wrapper.appendChild(avatar);
+        viewport.appendChild(wrapper);
+
+        remotePlayers[info.id] = {
+            id: info.id,
+            wrapper: wrapper,
+            nameTag: nTag,
+            bubble: bubble,
+            bubbleText: bubble.querySelector('.player-bubble-text'),
+            bubblePath: bubble.querySelector('.remote-bubble-path'),
+            avatar: avatar,
+            x: info.x,
+            y: info.y,
+            targetX: info.x,
+            targetY: info.y,
+            facing: info.facing,
+            anim: info.anim,
+            customSkin: info.customSkin,
+            name: info.name
+        };
+    }
+
+    function showSpeechBubble(bubbleEl, textEl, pathEl, nameTagEl, text, baseBottom) {
+        textEl.textContent = text;
+        bubbleEl.style.display = 'block';
+
+        let tempDiv = document.createElement('div');
+        tempDiv.style.cssText = 'position:absolute;visibility:hidden;width:192px;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;word-break:break-word;line-height:normal;padding:0;';
+        tempDiv.textContent = text;
+        document.body.appendChild(tempDiv);
+        let measuredHeight = tempDiv.offsetHeight;
+        document.body.removeChild(tempDiv);
+
+        let dynamicHeight = Math.max(50, measuredHeight + 20);
+        bubbleEl.style.height = dynamicHeight + 'px';
+
+        const svg = bubbleEl.querySelector('svg');
+        svg.setAttribute('viewBox', `0 0 220 ${dynamicHeight}`);
+        
+        let bodyBottom = dynamicHeight - 8;
+        let tailTip = dynamicHeight;
+
+        pathEl.setAttribute('d', `
+            M 12 2 L 208 2 A 10 10 0 0 1 218 12 L 218 ${bodyBottom - 10} A 10 10 0 0 1 208 ${bodyBottom} L 116 ${bodyBottom} L 110 ${tailTip} L 104 ${bodyBottom} L 12 ${bodyBottom} A 10 10 0 0 1 2 ${bodyBottom - 10} L 2 12 A 10 10 0 0 1 12 2 Z
+        `);
+
+        nameTagEl.style.bottom = (baseBottom + dynamicHeight + 12) + 'px';
+    }
+
+    function sendChatMessage() {
+        const text = chatInput.value.trim();
+        if (text !== "") {
+            playSfx(messageSound);
+            socket.emit('chatMessage', { text: text });
+            chatInput.value = "";
+        }
+    }
+
+    function addSystemMsg(htmlContent) {
+        const msgEl = document.createElement('div');
+        msgEl.className = 'chat-msg';
+        msgEl.innerHTML = `<span>System:</span> ${htmlContent}`;
+        chatMessages.appendChild(msgEl);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    chatSend.addEventListener('click', sendChatMessage);
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            sendChatMessage();
+            chatInput.blur();
+        }
+        e.stopPropagation();
+    });
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    }
+
+    // --- Platforms Setup ---
+    const platforms = [{ x: 0, y: 850, w: worldWidth, h: 400 }];
+    platforms.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'platform';
+        el.style.left = p.x + 'px';
+        el.style.top = p.y + 'px';
+        el.style.width = p.w + 'px';
+        el.style.height = p.h + 'px';
+        viewport.appendChild(el);
+        p.element = el;
+    });
+
+    // --- Controls ---
+    const keys = {};
+    window.addEventListener('keydown', e => { 
+        if (!gameStarted || isTyping) return;
+        keys[e.code] = true; 
+        if(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+    });
+    window.addEventListener('keyup', e => { if (gameStarted) keys[e.code] = false; });
+
+    function setLocalAnimation(filename) {
+        if (customSkinUrl) return; 
+        if (player.currentAnim !== filename) {
+            player.currentAnim = filename;
+            playerEl.style.backgroundImage = `url('${filename}?t=${Date.now()}')`;
+        }
+    }
+
+    let lastTime = performance.now();
+    let netSyncTimer = 0;
+
+    function update(currentTime) {
+        let deltaTime = (currentTime - lastTime) / 1000;
+        if (deltaTime > 0.1) deltaTime = 0.1;
+        lastTime = currentTime;
+
+        if (gameStarted) {
+            gameWidth = viewport.clientWidth;
+            gameHeight = viewport.clientHeight;
+
+            if (!isTyping) {
+                let deltaX = 0, deltaY = 0;
+                if (isDragging) {
+                    deltaX = currentDragX - dragStartX;
+                    deltaY = currentDragY - dragStartY;
+                    if (deltaY < -35 && player.isGrounded && !triggerJump) triggerJump = true;
+                }
+
+                if (keys['ArrowRight'] || keys['KeyD']) {
+                    player.vx = player.speed; player.facing = 'right';
+                } else if (keys['ArrowLeft'] || keys['KeyA']) {
+                    player.vx = -player.speed; player.facing = 'left';
+                } else if (isDragging && Math.abs(deltaX) > 10) {
+                    player.vx = deltaX > 0 ? player.speed : -player.speed;
+                    player.facing = deltaX > 0 ? 'right' : 'left';
+                } else {
+                    player.vx = 0;
+                }
+
+                player.x += player.vx * deltaTime;
+
+                let wantsToJump = keys['Space'] || keys['ArrowUp'] || keys['KeyW'] || triggerJump;
+                if (wantsToJump && player.isGrounded) {
+                    player.vy = player.jumpForce;
+                    player.isGrounded = false;
+                    triggerJump = false;
+                    playSfx(jumpSound);
+                }
+
+                let wasGrounded = player.isGrounded;
+                player.vy += player.gravity * deltaTime;
+                player.y += player.vy * deltaTime;
+
+                player.isGrounded = false;
+                for (let p of platforms) {
+                    if (player.x < p.x + p.w && player.x + player.width > p.x && player.y < p.y + p.h && player.y + player.height > p.y) {
+                        if (player.vy >= 0 && player.y + player.height - (player.vy * deltaTime) <= p.y + 15) {
+                            player.y = p.y - player.height;
+                            player.vy = 0;
+                            if (!wasGrounded) playSfx(groundLandSound);
+                            player.isGrounded = true;
+                        }
+                    }
+                }
+
+                if (player.isGrounded && player.vx !== 0) {
+                    stepTimer += deltaTime;
+                    if (stepTimer >= 0.2) { playSfx(footstepSound); stepTimer = 0; }
+                } else { stepTimer = 0; }
+            } else {
+                player.vx = 0; isDragging = false; triggerJump = false;
+            }
+
+            if (player.x < 0) player.x = 0;
+            if (player.x > worldWidth - player.width) player.x = worldWidth - player.width;
+
+            if (!player.isGrounded) {
+                setLocalAnimation(player.vy < 0 ? 'mortyjump.gif' : 'mortyfall.gif');
+            } else {
+                setLocalAnimation(player.vx !== 0 ? 'mortyrun.gif' : 'mortyidle.gif');
+            }
+
+            netSyncTimer += deltaTime;
+            if (netSyncTimer >= 0.05) {
+                socket.emit('playerMovement', {
+                    x: player.x,
+                    y: player.y,
+                    vx: player.vx,
+                    vy: player.vy,
+                    facing: player.facing,
+                    anim: player.currentAnim
+                });
+                netSyncTimer = 0;
+            }
+
+            cameraX = player.x - (gameWidth / 2) + player.width / 2;
+            cameraY = player.y - (gameHeight / 2) + player.height / 2;
+            if (cameraX < 0) cameraX = 0;
+            if (cameraX > worldWidth - gameWidth) cameraX = worldWidth - gameWidth;
+
+            let renderOffsetX = (player.renderWidth - player.width) / 2;
+            playerWrapper.style.left = (player.x - cameraX - renderOffsetX) + 'px';
+            playerWrapper.style.top = (player.y - cameraY) + 'px';
+            playerEl.style.transform = player.facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)';
+
+            Object.keys(remotePlayers).forEach((id) => {
+                let rp = remotePlayers[id];
+                rp.x += (rp.targetX - rp.x) * 0.2;
+                rp.y += (rp.targetY - rp.y) * 0.2;
+
+                let rRenderOffsetX = (200 - player.width) / 2;
+                rp.wrapper.style.left = (rp.x - cameraX - rRenderOffsetX) + 'px';
+                rp.wrapper.style.top = (rp.y - cameraY) + 'px';
+                rp.avatar.style.transform = rp.facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)';
+
+                if (!rp.customSkin && rp.anim) {
+                    rp.avatar.style.backgroundImage = `url('${rp.anim}')`;
+                }
+            });
+
+            platforms.forEach(p => {
+                p.element.style.left = (p.x - cameraX) + 'px';
+                p.element.style.top = (p.y - cameraY) + 'px';
+            });
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    requestAnimationFrame(update);
+</script>
+
+</body>
+</html>
