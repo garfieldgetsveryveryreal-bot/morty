@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Multiplayer Online Platformer with Audio</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <title>MORTY</title>
+    <script type="module">
+        import { joinRoom, selfId } from 'https://esm.run/trystero';
+        window.joinRoom = joinRoom;
+        window.selfId = selfId;
+    </script>
     <style>
         body {
             margin: 0;
@@ -28,7 +32,7 @@
             width: 100vw;
             height: 100vh;
             height: 100dvh;
-            background: rgba(255, 255, 255, 100);
+            background: rgba(255, 255, 255, 1);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -342,8 +346,6 @@
 </div>
 
 <script>
-    const socket = io();
-
     const footstepSound = new Audio('footstep.ogg');
     const jumpSound = new Audio('jump.wav');
     const messageSound = new Audio('message.wav');
@@ -418,10 +420,67 @@
 
     const remotePlayers = {};
 
+    let room, sendMove, getMove, sendChat, getChat;
+
+    function initP2P() {
+        if (!window.joinRoom) {
+            setTimeout(initP2P, 100);
+            return;
+        }
+
+        room = window.joinRoom({ appId: 'morty-v1' }, 'lobby');
+
+        [sendMove, getMove] = room.makeAction('move');
+        [sendChat, getChat] = room.makeAction('chat');
+
+        room.onPeerJoin(peerId => {
+            if (sendMove) {
+                sendMove({
+                    x: player.x,
+                    y: player.y,
+                    vx: player.vx,
+                    vy: player.vy,
+                    facing: player.facing,
+                    anim: player.currentAnim,
+                    customSkin: customSkinUrl,
+                    name: playerName
+                }, peerId);
+            }
+        });
+
+        room.onPeerLeave(peerId => {
+            if (remotePlayers[peerId]) {
+                remotePlayers[peerId].wrapper.remove();
+                delete remotePlayers[peerId];
+            }
+        });
+
+        getMove((data, peerId) => {
+            if (!remotePlayers[peerId]) {
+                createRemotePlayer({ id: peerId, ...data });
+            } else {
+                let rp = remotePlayers[peerId];
+                rp.targetX = data.x;
+                rp.targetY = data.y;
+                rp.facing = data.facing;
+                rp.anim = data.anim;
+                rp.customSkin = data.customSkin;
+                if (data.name) {
+                    rp.name = data.name;
+                    rp.nameTag.textContent = data.name;
+                }
+            }
+        });
+
+        getChat((data, peerId) => {
+            handleChatMessage({ id: peerId, ...data });
+        });
+    }
+
     function playGoogleTranslateTTS(text) {
         if (isMutedLocal || !gameStarted) return;
         let encodedText = encodeURIComponent(text);
-        let ttsUrl = `https:
+        let ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=en&client=tw-ob`;
         let audio = new Audio(ttsUrl);
         audio.volume = 1.0;
         audio.play().catch(err => {});
@@ -437,7 +496,7 @@
         gameStarted = true;
         chatInput.focus();
 
-        socket.emit('chatMessage', { text: `/name ${playerName}` });
+        initP2P();
     }
 
     loginButton.addEventListener('click', handleJoin);
@@ -445,45 +504,15 @@
         if (e.key === 'Enter') handleJoin();
     });
 
-    socket.on('currentPlayers', (serverPlayers) => {
-        Object.keys(serverPlayers).forEach((id) => {
-            if (id !== socket.id) {
-                createRemotePlayer(serverPlayers[id]);
-            }
-        });
-    });
-
-    socket.on('newPlayer', (playerInfo) => {
-        createRemotePlayer(playerInfo);
-    });
-
-    socket.on('playerMoved', (playerInfo) => {
-        if (remotePlayers[playerInfo.id]) {
-            let rp = remotePlayers[playerInfo.id];
-            rp.targetX = playerInfo.x;
-            rp.targetY = playerInfo.y;
-            rp.facing = playerInfo.facing;
-            rp.anim = playerInfo.anim;
-            rp.customSkin = playerInfo.customSkin;
-            rp.name = playerInfo.name;
-        }
-    });
-
-    socket.on('playerDisconnected', (id) => {
-        if (remotePlayers[id]) {
-            remotePlayers[id].wrapper.remove();
-            delete remotePlayers[id];
-        }
-    });
-
-    socket.on('chatMessage', (data) => {
+    function handleChatMessage(data) {
+        playSfx(messageSound);
         const msgEl = document.createElement('div');
         msgEl.className = 'chat-msg';
         msgEl.innerHTML = `<span>${escapeHTML(data.name)}:</span> ${escapeHTML(data.text)}`;
         chatMessages.appendChild(msgEl);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
-        if (data.id === socket.id) {
+        if (data.id === window.selfId) {
             showSpeechBubble(playerBubble, playerBubbleText, playerBubblePath, nameTag, data.text, 215);
             playGoogleTranslateTTS(data.text);
         } else if (remotePlayers[data.id]) {
@@ -519,7 +548,7 @@
                 addSystemMsg("Background video started.");
             }
         }
-    });
+    }
 
     function createRemotePlayer(info) {
         const wrapper = document.createElement('div');
@@ -527,7 +556,7 @@
 
         const nTag = document.createElement('div');
         nTag.className = 'name-tag';
-        nTag.textContent = info.name;
+        nTag.textContent = info.name || "Peer";
 
         const bubble = document.createElement('div');
         bubble.className = 'player-bubble';
@@ -555,14 +584,14 @@
             bubbleText: bubble.querySelector('.player-bubble-text'),
             bubblePath: bubble.querySelector('.remote-bubble-path'),
             avatar: avatar,
-            x: info.x,
-            y: info.y,
-            targetX: info.x,
-            targetY: info.y,
-            facing: info.facing,
-            anim: info.anim,
+            x: info.x || 100,
+            y: info.y || 600,
+            targetX: info.x || 100,
+            targetY: info.y || 600,
+            facing: info.facing || 'right',
+            anim: info.anim || '',
             customSkin: info.customSkin,
-            name: info.name
+            name: info.name || "Peer"
         };
     }
 
@@ -591,14 +620,39 @@
         `);
 
         nameTagEl.style.bottom = (baseBottom + dynamicHeight + 12) + 'px';
+
+        setTimeout(() => {
+            bubbleEl.style.display = 'none';
+        }, 5000);
     }
 
     function sendChatMessage() {
         const text = chatInput.value.trim();
         if (text !== "") {
-            playSfx(messageSound);
-            socket.emit('chatMessage', { text: text });
             chatInput.value = "";
+
+            if (text.startsWith('/name ')) {
+                const newName = text.substring(6).trim();
+                if (newName) {
+                    playerName = newName;
+                    nameTag.textContent = playerName;
+                }
+            } else if (text.startsWith('/skin ')) {
+                const newSkin = text.substring(6).trim();
+                if (newSkin) {
+                    customSkinUrl = newSkin;
+                    playerEl.style.backgroundImage = `url('${newSkin}')`;
+                }
+            }
+
+            const msgData = {
+                name: playerName,
+                text: text,
+                customSkin: customSkinUrl
+            };
+
+            if (sendChat) sendChat(msgData);
+            handleChatMessage({ id: window.selfId, ...msgData });
         }
     }
 
@@ -619,13 +673,15 @@
         e.stopPropagation();
     });
 
+    chatInput.addEventListener('focus', () => { isTyping = true; });
+    chatInput.addEventListener('blur', () => { isTyping = false; });
+
     function escapeHTML(str) {
         return str.replace(/[&<>'"]/g, 
             tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
         );
     }
 
-    // --- Platforms Setup ---
     const platforms = [{ x: 0, y: 850, w: worldWidth, h: 400 }];
     platforms.forEach(p => {
         const el = document.createElement('div');
@@ -638,7 +694,6 @@
         p.element = el;
     });
 
-    // --- Controls ---
     const keys = {};
     window.addEventListener('keydown', e => { 
         if (!gameStarted || isTyping) return;
@@ -731,14 +786,18 @@
 
             netSyncTimer += deltaTime;
             if (netSyncTimer >= 0.05) {
-                socket.emit('playerMovement', {
-                    x: player.x,
-                    y: player.y,
-                    vx: player.vx,
-                    vy: player.vy,
-                    facing: player.facing,
-                    anim: player.currentAnim
-                });
+                if (sendMove) {
+                    sendMove({
+                        x: player.x,
+                        y: player.y,
+                        vx: player.vx,
+                        vy: player.vy,
+                        facing: player.facing,
+                        anim: player.currentAnim,
+                        customSkin: customSkinUrl,
+                        name: playerName
+                    });
+                }
                 netSyncTimer = 0;
             }
 
