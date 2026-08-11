@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MORTY</title>
+    <title>MORTY (v1b)</title>
     <script type="module">
-        import { joinRoom, selfId } from 'https://esm.run/trystero';
+        import { joinRoom, selfId } from 'https://esm.run/trystero/mqtt';
         window.joinRoom = joinRoom;
         window.selfId = selfId;
     </script>
@@ -47,12 +47,6 @@
             gap: 12px;
             width: 280px;
             box-sizing: border-box;
-        }
-        #login-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #000000;
-            text-align: center;
         }
         #login-input, #room-input {
             background: #ffffff;
@@ -308,8 +302,8 @@
 <div id="login-screen">
     <div id="login-box">
         <img src="morty.png" alt="MORTY">
-        <input type="text" id="login-input" placeholder="Insert a username" autocomplete="off">
-        <input type="text" id="room-input" placeholder="Put a room id if you want to" autocomplete="off">
+        <input type="text" id="login-input" placeholder="Enter your username..." autocomplete="off">
+        <input type="text" id="room-input" placeholder="Room code (optional)..." autocomplete="off">
         <button id="login-button">OK</button>
     </div>
 </div>
@@ -337,10 +331,10 @@
     <div id="chat-panel">
         <div id="chat-header">Online Chat Log</div>
         <div id="chat-messages">
-            <div class="chat-msg"><span>commands:</span> /media [url], /backgroundvid [url], /skin [url], /name [newname]</div>
+            <div class="chat-msg"><span>COMMANDS:</span> /media [url], /backgroundvid [url], /skin [url], /name [newname]</div>
         </div>
         <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="type something">
+            <input type="text" id="chat-input" placeholder="Type a message or command...">
             <button id="chat-send">Send</button>
         </div>
     </div>
@@ -382,10 +376,6 @@
     const chatSend = document.getElementById('chat-send');
     const chatMessages = document.getElementById('chat-messages');
 
-    const contextMenu = document.getElementById('context-menu');
-    const ctxCall = document.getElementById('ctx-call');
-    const ctxMute = document.getElementById('ctx-mute');
-
     let gameStarted = false;
     let playerName = "Player";
     let targetRoom = "lobby";
@@ -423,7 +413,7 @@
 
     const remotePlayers = {};
 
-    let room, sendMove, getMove, sendChat, getChat;
+    let room, sendMove, sendChat;
 
     function initP2P() {
         if (!window.joinRoom) {
@@ -431,12 +421,22 @@
             return;
         }
 
-        room = window.joinRoom({ appId: 'morty-v1b' }, targetRoom);
+        const config = {
+            appId: 'morty-v1b-app'
+        };
 
-        [sendMove, getMove] = room.makeAction('move');
-        [sendChat, getChat] = room.makeAction('chat');
+        room = window.joinRoom(config, targetRoom);
+
+        const moveActions = room.makeAction('move');
+        sendMove = Array.isArray(moveActions) ? moveActions[0] : moveActions;
+        const getMove = Array.isArray(moveActions) ? moveActions[1] : moveActions;
+
+        const chatActions = room.makeAction('chat');
+        sendChat = Array.isArray(chatActions) ? chatActions[0] : chatActions;
+        const getChat = Array.isArray(chatActions) ? chatActions[1] : chatActions;
 
         room.onPeerJoin(peerId => {
+            addSystemMsg(`Player connected!`);
             if (sendMove) {
                 sendMove({
                     x: player.x,
@@ -455,6 +455,7 @@
             if (remotePlayers[peerId]) {
                 remotePlayers[peerId].wrapper.remove();
                 delete remotePlayers[peerId];
+                addSystemMsg(`Player left the game.`);
             }
         });
 
@@ -479,7 +480,7 @@
             handleChatMessage({ id: peerId, ...data });
         });
 
-        addSystemMsg(`Joined room: <b>${targetRoom}</b>`);
+        addSystemMsg(`Connected to room: <b>${targetRoom}</b>`);
     }
 
     function playGoogleTranslateTTS(text) {
