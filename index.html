@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MORTY (v1b)</title>
+    
     <script type="module">
-        import { joinRoom, selfId } from 'https://esm.run/trystero/mqtt';
+        import { joinRoom, selfId } from 'https://unpkg.com/trystero@0.22.0/dist/trystero-torrent.min.js';
         window.joinRoom = joinRoom;
         window.selfId = selfId;
     </script>
+    
     <style>
         body {
             margin: 0;
@@ -427,13 +429,11 @@
 
         room = window.joinRoom(config, targetRoom);
 
-        const moveActions = room.makeAction('move');
-        sendMove = Array.isArray(moveActions) ? moveActions[0] : moveActions;
-        const getMove = Array.isArray(moveActions) ? moveActions[1] : moveActions;
+        const [sMove, getMove] = room.makeAction('move');
+        sendMove = sMove;
 
-        const chatActions = room.makeAction('chat');
-        sendChat = Array.isArray(chatActions) ? chatActions[0] : chatActions;
-        const getChat = Array.isArray(chatActions) ? chatActions[1] : chatActions;
+        const [sChat, getChat] = room.makeAction('chat');
+        sendChat = sChat;
 
         room.onPeerJoin(peerId => {
             addSystemMsg(`Player connected!`);
