@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MORTY (v1b)</title>
+    <title>MORTY</title>
     <script type="module">
         import { joinRoom, selfId } from 'https://esm.run/trystero';
         window.joinRoom = joinRoom;
@@ -308,8 +308,8 @@
 <div id="login-screen">
     <div id="login-box">
         <img src="morty.png" alt="MORTY">
-        <input type="text" id="login-input" placeholder="Enter your username..." autocomplete="off">
-        <input type="text" id="room-input" placeholder="Room code (optional)..." autocomplete="off">
+        <input type="text" id="login-input" placeholder="Insert a username" autocomplete="off">
+        <input type="text" id="room-input" placeholder="Put a room id if you want to" autocomplete="off">
         <button id="login-button">OK</button>
     </div>
 </div>
@@ -337,10 +337,10 @@
     <div id="chat-panel">
         <div id="chat-header">Online Chat Log</div>
         <div id="chat-messages">
-            <div class="chat-msg"><span>COMMANDS:</span> /media [url], /backgroundvid [url], /skin [url], /name [newname]</div>
+            <div class="chat-msg"><span>commands:</span> /media [url], /backgroundvid [url], /skin [url], /name [newname]</div>
         </div>
         <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Type a message or command...">
+            <input type="text" id="chat-input" placeholder="type something">
             <button id="chat-send">Send</button>
         </div>
     </div>
