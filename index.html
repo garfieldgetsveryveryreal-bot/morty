@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MORTY</title>
+    <title>MORTY (v1b)</title>
     <script type="module">
         import { joinRoom, selfId } from 'https://esm.run/trystero';
         window.joinRoom = joinRoom;
@@ -54,7 +54,7 @@
             color: #000000;
             text-align: center;
         }
-        #login-input {
+        #login-input, #room-input {
             background: #ffffff;
             border: 1px solid #000000;
             padding: 6px;
@@ -309,6 +309,7 @@
     <div id="login-box">
         <img src="morty.png" alt="MORTY">
         <input type="text" id="login-input" placeholder="Enter your username..." autocomplete="off">
+        <input type="text" id="room-input" placeholder="Room code (optional)..." autocomplete="off">
         <button id="login-button">OK</button>
     </div>
 </div>
@@ -366,6 +367,7 @@
 
     const loginScreen = document.getElementById('login-screen');
     const loginInput = document.getElementById('login-input');
+    const roomInput = document.getElementById('room-input');
     const loginButton = document.getElementById('login-button');
 
     const viewport = document.getElementById('viewport');
@@ -386,6 +388,7 @@
 
     let gameStarted = false;
     let playerName = "Player";
+    let targetRoom = "lobby";
     let isMutedLocal = false;
     let customSkinUrl = null;
 
@@ -428,7 +431,7 @@
             return;
         }
 
-        room = window.joinRoom({ appId: 'morty-v1' }, 'lobby');
+        room = window.joinRoom({ appId: 'morty-v1b' }, targetRoom);
 
         [sendMove, getMove] = room.makeAction('move');
         [sendChat, getChat] = room.makeAction('chat');
@@ -475,6 +478,8 @@
         getChat((data, peerId) => {
             handleChatMessage({ id: peerId, ...data });
         });
+
+        addSystemMsg(`Joined room: <b>${targetRoom}</b>`);
     }
 
     function playGoogleTranslateTTS(text) {
@@ -488,9 +493,15 @@
 
     function handleJoin() {
         let inputVal = loginInput.value.trim();
+        let roomVal = roomInput.value.trim().toLowerCase();
+
         if (inputVal !== "") {
             playerName = inputVal;
         }
+        if (roomVal !== "") {
+            targetRoom = roomVal;
+        }
+
         nameTag.textContent = playerName;
         loginScreen.style.display = 'none';
         gameStarted = true;
@@ -501,6 +512,9 @@
 
     loginButton.addEventListener('click', handleJoin);
     loginInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleJoin();
+    });
+    roomInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleJoin();
     });
 
